@@ -50,6 +50,7 @@ class PrepML:
                              .index)[1:]
                    ) for var in df_oh]
         dummy_names = ['{}_{}'.format(tup[0], cat) for tup in tuples for cat in tup[1]]
+        dummy_names = ["".join (c if c.isalnum() else "_" for c in str(x)) for x in dummy_names]
 
         # Instanciamos  objeto de preproceso
         oh_enc = OneHotEncoder(categories,
