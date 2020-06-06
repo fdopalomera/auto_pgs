@@ -3,8 +3,7 @@
     - Método pipeline?
     - Mètodo Actualizar
     - Atributo mejores parámetros
-    - Método feature importances
-    - Convertir logaritmo
+
 """
 
 import pandas as pd
@@ -12,6 +11,7 @@ import numpy as np
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import GridSearchCV
+from xgboost import XGBRegressor
 from time import time
 
 
@@ -53,13 +53,13 @@ class PrepML:
 
         # Instanciamos  objeto de preproceso
         oh_enc = OneHotEncoder(categories,
-                               sparse=False,
+                               sparse=True,
                                drop=aux['drop'][drop_first],
                                handle_unknown=aux['unknown'][drop_first])
         # Entrenamos y transformamos columnas con el encoder
         dummy_data = oh_enc.fit_transform(df_oh)
-        prep_df = pd.DataFrame(data=dummy_data,
-                               columns=dummy_names)
+        prep_df = pd.DataFrame.sparse.from_spmatrix(data=dummy_data,
+                                                    columns=dummy_names)
         # Actualizamos la base
         self.df = pd.concat(objs=[self.df.drop(columns=columns),
                                   prep_df],
@@ -133,6 +133,8 @@ class PrepML:
 
     def to_train_test_samples(self, sample_col, target):
 
+        start = time()
+
         df_train = self.df[self.df[sample_col] == 'train']
         df_test = self.df[self.df[sample_col] == 'test']
 
@@ -141,6 +143,9 @@ class PrepML:
 
         X_test = df_test.drop(columns=[target, sample_col])
         y_test = df_test[target]
+
+        length = round(time() - start, 0)
+        print(f'Realizado en {length}s')
 
         return X_train, y_train, X_test, y_test
 
@@ -153,6 +158,16 @@ class MLModel:
         self.target = None
         self.features = None
 
+    def fit(self, x_train, y_train):
+
+        start = time()
+        self.best_model = self.model.fit(x_train, y_train)
+        self.target = y_train.name
+        self.features = x_train.columns
+
+        length = round(time() - start, 0)
+        print(f'Realizado en {length}s')
+
     def grid_search(self, x_train, y_train, param_grid, cv=5):
 
         start = time()
@@ -160,8 +175,12 @@ class MLModel:
                             param_grid=param_grid,
                             n_jobs=-1,
                             cv=cv)
-        grid.fit(x_train, y_train)
+        if isinstance(self.model, XGBRegressor):
+            grid.fit(x_train.values, y_train)
+        else:
+            grid.fit(x_train, y_train)
 
+        print(f'Mejores parámetros:\n{grid.best_params_}\n')
         length = round(time() - start, 0)
         print(f'Realizado en {length}s')
 
@@ -172,7 +191,11 @@ class MLModel:
 
     def metrics(self, x_test, y_test, print_results=True):
 
-        y_hat = self.best_model.predict(x_test)
+        if isinstance(self.model, XGBRegressor):
+            y_hat = self.best_model.predict(x_test.values)
+        else:
+            y_hat = self.best_model.predict(x_test)
+
         metrics = {'mse': round(mean_squared_error(y_true=y_test,
                                                    y_pred=y_hat), 3),
                    'mae': round(mean_absolute_error(y_true=y_test,
