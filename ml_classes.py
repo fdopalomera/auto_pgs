@@ -169,12 +169,11 @@ class MLModel:
         length = round(time() - start, 0)
         print(f'Realizado en {length}s')
 
-    def grid_search(self, x_train, y_train, param_grid, cv=5):
-
+    def grid_search(self, x_train, y_train, param_grid, cv=5, n_jobs=1):
         start = time()
         grid = GridSearchCV(estimator=self.model,
                             param_grid=param_grid,
-                            n_jobs=-1,
+                            n_jobs=n_jobs,
                             cv=cv)
         if isinstance(self.model, XGBRegressor):
             grid.fit(x_train.values, y_train)
