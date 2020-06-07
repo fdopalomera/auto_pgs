@@ -18,7 +18,7 @@ from time import time
 class PrepML:
 
     def __init__(self, df):
-        self.df = df
+        self.df = df.dropna()
         self.columns = list(df.columns)
         self.prep_objects = []
 
@@ -50,7 +50,7 @@ class PrepML:
                              .index)[1:]
                    ) for var in df_oh]
         dummy_names = ['{}_{}'.format(tup[0], cat) for tup in tuples for cat in tup[1]]
-        dummy_names = ["".join (c if c.isalnum() else "_" for c in str(x)) for x in dummy_names]
+        dummy_names = ["".join(c if c.isalnum() else "_" for c in str(x)) for x in dummy_names]
 
         # Instanciamos  objeto de preproceso
         oh_enc = OneHotEncoder(categories,
@@ -68,8 +68,6 @@ class PrepML:
         # Actualizamos atributos
         self.columns = list(self.df.columns)
         self.prep_objects += [{'onehot': oh_enc}]
-
-        return self.df
 
     def standard_scaler(self, columns):
         """
@@ -92,8 +90,6 @@ class PrepML:
         self.columns = list(self.df.columns)
         self.prep_objects += [{'std_scaler': std_enc}]
 
-        return self.df
-
     def transform_columns(self, transformer_instance, transformer_name, columns):
 
         # Instanciamos y entrenamos/transformamos con objeto de preproceso
@@ -108,8 +104,6 @@ class PrepML:
         self.columns = list(self.df.columns)
         self.prep_objects += [{transformer_name: transformer_instance}]
 
-        return self.df
-
     def remove_outliers(self, columns, multiplier=1.5):
 
         Q1 = self.df[columns].quantile(0.25)
@@ -118,7 +112,6 @@ class PrepML:
         self.df = self.df[~((self.df < (Q1 - multiplier * IQR)) |
                             (self.df > (Q3 + multiplier * IQR))
                             ).any(axis=1)].reset_index(drop=True).copy()
-        return self.df
 
     def log_transformer(self, column):
 
