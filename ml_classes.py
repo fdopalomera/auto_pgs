@@ -117,13 +117,11 @@ class PrepML:
 
         self.df[column] = self.df[column].map(lambda x: np.log(x))
 
-       #list[{'encoder': params}]
+    def express_pipeline(self, onehot_cols, stdscaler_cols, drop_first=True):
 
-    def pipeline(self, enc_dict):
-        dc = {'onehot': self.one_hot_encoder,
-              'std_scaler': self.standard_scaler,
-              'rm_outliers': self.remove_outliers}
-    #funcioniones(**dc)
+        self.one_hot_encoder(columns=onehot_cols,
+                             drop_first=drop_first)
+        self.standard_scaler(columns=stdscaler_cols)
 
     def to_train_test_samples(self, sample_col, target):
 
@@ -189,10 +187,10 @@ class MLModel:
         else:
             y_hat = self.best_model.predict(x_test)
 
-        metrics = {'mse': round(mean_squared_error(y_true=y_test,
-                                                   y_pred=y_hat), 3),
+        metrics = {'rmse': round(np.sqrt(mean_squared_error(y_true=y_test,
+                                                            y_pred=y_hat)), 1),
                    'mae': round(mean_absolute_error(y_true=y_test,
-                                                    y_pred=y_hat), 3),
+                                                    y_pred=y_hat), 1),
                    'r2': round(r2_score(y_true=y_test,
                                         y_pred=y_hat), 3)}
         if print_results:
