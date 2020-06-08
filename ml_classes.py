@@ -64,7 +64,8 @@ class PrepML:
         # Actualizamos la base
         self.df = pd.concat(objs=[self.df.drop(columns=columns),
                                   prep_df],
-                            axis=1)
+                            axis=1,
+                            join='inner')
         # Actualizamos atributos
         self.columns = list(self.df.columns)
         self.prep_objects += [{'onehot': oh_enc}]
@@ -85,7 +86,8 @@ class PrepML:
         # Actualizamos la base
         self.df = pd.concat(objs=[self.df.drop(columns=columns),
                                   prep_df],
-                            axis=1)
+                            axis=1,
+                            join='inner')
         # Actualizamos atributos
         self.columns = list(self.df.columns)
         self.prep_objects += [{'std_scaler': std_enc}]
