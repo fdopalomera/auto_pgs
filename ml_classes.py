@@ -38,6 +38,9 @@ class PrepML:
                }
         # Categorías para one-hot
         df_oh = self.df[columns]
+        for var in columns:
+            df_oh[var] = df_oh[var].map(lambda x: "".join(c if c.isalnum() else "_" for c in str(x)))
+
         categories = [list(df_oh[var]
                            .value_counts()
                            .sort_values(ascending=False)
@@ -50,7 +53,6 @@ class PrepML:
                              .index)[1:]
                    ) for var in df_oh]
         dummy_names = ['{}_{}'.format(tup[0], cat) for tup in tuples for cat in tup[1]]
-        dummy_names = ["".join(c if c.isalnum() else "_" for c in str(x)) for x in dummy_names]
 
         # Instanciamos  objeto de preproceso
         oh_enc = OneHotEncoder(categories,
@@ -64,8 +66,7 @@ class PrepML:
         # Actualizamos la base
         self.df = pd.concat(objs=[self.df.drop(columns=columns),
                                   prep_df],
-                            axis=1,
-                            join='inner').reset_index(drop=True)
+                            axis=1)
         # Actualizamos atributos
         self.columns = list(self.df.columns)
         self.prep_objects += [{'onehot': oh_enc}]
@@ -86,8 +87,7 @@ class PrepML:
         # Actualizamos la base
         self.df = pd.concat(objs=[self.df.drop(columns=columns),
                                   prep_df],
-                            axis=1,
-                            join='inner').reset_index(drop=True)
+                            axis=1)
         # Actualizamos atributos
         self.columns = list(self.df.columns)
         self.prep_objects += [{'std_scaler': std_enc}]
