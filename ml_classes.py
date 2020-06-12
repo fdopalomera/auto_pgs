@@ -14,6 +14,7 @@ from sklearn.model_selection import GridSearchCV, train_test_split
 from xgboost import XGBRegressor
 from time import time
 import pickle
+import random
 
 
 class PrepML:
@@ -107,14 +108,19 @@ class PrepML:
         self.columns = list(self.df.columns)
         self.prep_objects.update({transformer_name: transformer_instance})
 
-    def remove_outliers(self, columns, iqr_multiplier=1.5):
+    def remove_outliers(self, columns, sample_col, iqr_multiplier=1.5):
 
-        Q1 = self.df[columns].quantile(0.25)
-        Q3 = self.df[columns].quantile(0.75)
+        train = self.df[self.df[sample_col] == 'train'].reset_index(drop=True)
+        test = self.df[self.df[sample_col] == 'test'].reset_index(drop=True)
+
+        Q1 = train[columns].quantile(0.25)
+        Q3 = train[columns].quantile(0.75)
         IQR = Q3 - Q1
-        self.df = self.df[~((self.df < (Q1 - iqr_multiplier * IQR)) |
-                            (self.df > (Q3 + iqr_multiplier * IQR))
+        train = train[~((train < (Q1 - iqr_multiplier * IQR)) |
+                            (train > (Q3 + iqr_multiplier * IQR))
                             ).any(axis=1)].reset_index(drop=True).copy()
+
+        self.df = pd.concat([train, test], axis=0).reset_index(drop=True)
 
     def log_transformer(self, column):
 
@@ -129,17 +135,23 @@ class PrepML:
     def to_train_test_samples(self, sample_col, target, test_size=.3, random_state=42):
 
         start = time()
+        random.seed(random_state)
 
-        df_train = self.df[self.df[sample_col] == 'train']
-        df_test = self.df[self.df[sample_col] == 'test']
+        df_val = self.df[self.df[sample_col] == 'test'].reset_index(drop=True)
 
-        X_train, X_test, y_train, y_test = train_test_split(
-                                            df_train.drop(columns=[target, sample_col]),
-                                            df_train[target],
-                                            test_size=test_size,
-                                            random_state=random_state)
-        X_val = df_test.drop(columns=[target, sample_col])
-        y_val = df_test[target]
+        ix = self.df[self.df['sample'] == 'train'].index
+        test_number = int(np.floor(len(ix) * test_size))
+        test_ix = random.choices(ix, k=test_number)
+        train_ix = list(set(ix) - set(test_ix))
+        df_test = self.df.loc[test_ix].reset_index(drop=True)
+        df_train = self.df.loc[train_ix].reset_index(drop=True)
+
+        X_train = df_train.drop(columns=[target, sample_col])
+        y_train = df_train.pop(target)
+        X_test = df_test.drop(columns=[target, sample_col])
+        y_test = df_test.pop(target)
+        X_val = df_val.drop(columns=[target, sample_col])
+        y_val = df_val.pop(target)
 
         length = round(time() - start, 0)
         print(f'Realizado en {length}s')
