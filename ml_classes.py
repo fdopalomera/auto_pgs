@@ -1,6 +1,5 @@
 """ TODO:
     - Ojo con categorías no observadas: cambiar a drop_first a 'False'
-    - Método pipeline?
     - Mètodo Actualizar
     - Atributo mejores parámetros
 
@@ -10,7 +9,9 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.model_selection import GridSearchCV
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
 from xgboost import XGBRegressor
 from time import time
 import pickle
@@ -22,7 +23,7 @@ class PrepML:
     def __init__(self, df):
         self.df = df.dropna()
         self.columns = list(df.columns)
-        self.prep_objects = {}
+        self.transformers = []
 
     def one_hot_encoder(self, columns, drop_first=True):
         """
@@ -71,7 +72,7 @@ class PrepML:
                             axis=1)
         # Actualizamos atributos
         self.columns = list(self.df.columns)
-        self.prep_objects.update({'onehot': oh_enc})
+        self.transformers += ('onehot', oh_enc, columns)
 
     def standard_scaler(self, columns):
         """
@@ -92,7 +93,7 @@ class PrepML:
                             axis=1)
         # Actualizamos atributos
         self.columns = list(self.df.columns)
-        self.prep_objects.update({'std_scaler': std_enc})
+        self.transformers += ('std_scaler', std_enc, columns)
 
     def transform_columns(self, transformer_instance, transformer_name, columns):
 
@@ -106,7 +107,7 @@ class PrepML:
                             axis=1)
         # Actualizamos atributos
         self.columns = list(self.df.columns)
-        self.prep_objects.update({transformer_name: transformer_instance})
+        self.transformers += (transformer_name, transformer_instance, columns)
 
     def remove_outliers(self, columns, sample_col, iqr_multiplier=1.5):
 
@@ -125,12 +126,6 @@ class PrepML:
     def log_transformer(self, column):
 
         self.df[column] = self.df[column].map(lambda x: np.log(x))
-
-    def express_pipeline(self, onehot_cols, stdscaler_cols, drop_first=True):
-
-        self.one_hot_encoder(columns=onehot_cols,
-                             drop_first=drop_first)
-        self.standard_scaler(columns=stdscaler_cols)
 
     def to_train_test_samples(self, sample_col, target, test_size=.3, random_state=42):
 
@@ -246,6 +241,20 @@ class MLModel:
                              index=columns).sort_values(ascending=False)
         else:
             raise ValueError("El algoritmo no tiene el atributo feature_importances")
+
+    def to_pickle(self, filepath):
+
+        pickle.dump(self.best_model, open(filepath, 'wb'))
+
+    def to_pipeline(self, transformers):
+
+        pipeline = Pipeline([
+            ('preprocessor', ColumnTransformer(transformers)),
+            ('model', self.best_model)
+        ])
+
+        return pipeline
+
 
 
 
