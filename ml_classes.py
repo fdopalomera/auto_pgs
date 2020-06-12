@@ -10,9 +10,10 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, train_test_split
 from xgboost import XGBRegressor
 from time import time
+import pickle
 
 
 class PrepML:
@@ -20,7 +21,7 @@ class PrepML:
     def __init__(self, df):
         self.df = df.dropna()
         self.columns = list(df.columns)
-        self.prep_objects = []
+        self.prep_objects = {}
 
     def one_hot_encoder(self, columns, drop_first=True):
         """
@@ -37,10 +38,10 @@ class PrepML:
                'unknown': {True: 'error', False: 'ignore'}
                }
         # Categorías para one-hot
+
         df_oh = self.df[columns]
         for var in columns:
             df_oh[var] = df_oh[var].map(lambda x: "".join(c if c.isalnum() else "_" for c in str(x)))
-
         categories = [list(df_oh[var]
                            .value_counts()
                            .sort_values(ascending=False)
@@ -69,7 +70,7 @@ class PrepML:
                             axis=1)
         # Actualizamos atributos
         self.columns = list(self.df.columns)
-        self.prep_objects += [{'onehot': oh_enc}]
+        self.prep_objects.update({'onehot': oh_enc})
 
     def standard_scaler(self, columns):
         """
@@ -90,7 +91,7 @@ class PrepML:
                             axis=1)
         # Actualizamos atributos
         self.columns = list(self.df.columns)
-        self.prep_objects += [{'std_scaler': std_enc}]
+        self.prep_objects.update({'std_scaler': std_enc})
 
     def transform_columns(self, transformer_instance, transformer_name, columns):
 
@@ -104,15 +105,15 @@ class PrepML:
                             axis=1)
         # Actualizamos atributos
         self.columns = list(self.df.columns)
-        self.prep_objects += [{transformer_name: transformer_instance}]
+        self.prep_objects.update({transformer_name: transformer_instance})
 
-    def remove_outliers(self, columns, multiplier=1.5):
+    def remove_outliers(self, columns, iqr_multiplier=1.5):
 
         Q1 = self.df[columns].quantile(0.25)
         Q3 = self.df[columns].quantile(0.75)
         IQR = Q3 - Q1
-        self.df = self.df[~((self.df < (Q1 - multiplier * IQR)) |
-                            (self.df > (Q3 + multiplier * IQR))
+        self.df = self.df[~((self.df < (Q1 - iqr_multiplier * IQR)) |
+                            (self.df > (Q3 + iqr_multiplier * IQR))
                             ).any(axis=1)].reset_index(drop=True).copy()
 
     def log_transformer(self, column):
@@ -125,23 +126,25 @@ class PrepML:
                              drop_first=drop_first)
         self.standard_scaler(columns=stdscaler_cols)
 
-    def to_train_test_samples(self, sample_col, target):
+    def to_train_test_samples(self, sample_col, target, test_size=.3, random_state=42):
 
         start = time()
 
         df_train = self.df[self.df[sample_col] == 'train']
         df_test = self.df[self.df[sample_col] == 'test']
 
-        X_train = df_train.drop(columns=[target, sample_col])
-        y_train = df_train[target]
-
-        X_test = df_test.drop(columns=[target, sample_col])
-        y_test = df_test[target]
+        X_train, X_test, y_train, y_test = train_test_split(
+                                            df_train.drop(columns=[target, sample_col]),
+                                            df_train[target],
+                                            test_size=test_size,
+                                            random_state=random_state)
+        X_val = df_test.drop(columns=[target, sample_col])
+        y_val = df_test[target]
 
         length = round(time() - start, 0)
         print(f'Realizado en {length}s')
 
-        return X_train, y_train, X_test, y_test
+        return X_train, y_train, X_test, y_test, X_val, y_val
 
 
 class MLModel:
@@ -151,6 +154,17 @@ class MLModel:
         self.best_model = None
         self.target = None
         self.features = None
+
+    @classmethod
+    def from_pickle(cls, filepath):
+        best_model = pickle.load(open(filepath, 'rb'))
+
+        obj = cls.__new__(cls)
+        super(PrepML, obj).__init__()
+        obj.model = None
+        obj.best_model = best_model
+
+        return obj
 
     def fit(self, x_train, y_train):
 
@@ -182,14 +196,14 @@ class MLModel:
         self.target = y_train.name
         self.features = x_train.columns
 
-    def metrics(self, x_test, y_test, print_results=True):
+    def metrics(self, x_test, y_test, print_results=False):
 
         if isinstance(self.model, XGBRegressor):
             y_hat = self.best_model.predict(x_test.values)
         else:
             y_hat = self.best_model.predict(x_test)
 
-        metrics = {'rmse': round(np.sqrt(mean_squared_error(y_true=y_test,
+        metrics = {'rsme': round(np.sqrt(mean_squared_error(y_true=y_test,
                                                             y_pred=y_hat)), 1),
                    'mae': round(mean_absolute_error(y_true=y_test,
                                                     y_pred=y_hat), 1),
@@ -200,6 +214,17 @@ class MLModel:
                 print('{}: {}'.format(key, value))
 
         return metrics
+
+    def train_test_metrics(self, X_train, y_train, X_test, y_test):
+
+        train_met = self.metrics(X_train, y_train, print_results=False)
+        test_met = self.metrics(X_test, y_test, print_results=False)
+        data = [[val for key, val in train_met.items()],
+                [val for key, val in test_met.items()]
+                ]
+        cols = ['RSME', 'MAE', 'R2']
+        ix = ['Train', 'Test']
+        return pd.DataFrame(data=data, columns=cols, index=ix)
 
     def feature_importances(self, x_train):
 
