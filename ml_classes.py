@@ -128,7 +128,7 @@ class PrepML:
             before = train.shape[0]
             after = train_af.shape[0]
             print(f'Datos para entrenamiento antes de eliminación de outliers: {before}')
-            print(f'Datos para entrenamiento de eliminación de outliers: {after}')
+            print(f'Datos para entrenamiento después eliminación de outliers: {after}')
             print(f'Proporción de datos para entrenamiento eliminada: {1 - round(after / before, 3)}')
 
     def log_transformer(self, column):
@@ -175,7 +175,7 @@ class MLModel:
         best_model = pickle.load(open(filepath, 'rb'))
 
         obj = cls.__new__(cls)
-        super(PrepML, obj).__init__()
+        super(MLModel, obj).__init__()
         obj.model = None
         obj.best_model = best_model
 
@@ -213,7 +213,7 @@ class MLModel:
 
     def metrics(self, x_test, y_test, print_results=False):
 
-        if isinstance(self.model, XGBRegressor):
+        if isinstance(self.best_model, XGBRegressor):
             y_hat = self.best_model.predict(x_test.values)
         else:
             y_hat = self.best_model.predict(x_test)
