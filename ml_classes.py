@@ -109,7 +109,7 @@ class PrepML:
         self.columns = list(self.df.columns)
         self.transformers += (transformer_name, transformer_instance, columns)
 
-    def remove_outliers(self, columns, sample_col, iqr_multiplier=1.5):
+    def remove_outliers(self, columns, sample_col, iqr_multiplier=1.5, print_diff=False):
 
         train = self.df[self.df[sample_col] == 'train'].reset_index(drop=True)
         test = self.df[self.df[sample_col] == 'test'].reset_index(drop=True)
@@ -117,11 +117,19 @@ class PrepML:
         Q1 = train[columns].quantile(0.25)
         Q3 = train[columns].quantile(0.75)
         IQR = Q3 - Q1
-        train = train[~((train < (Q1 - iqr_multiplier * IQR)) |
+        train_af = train[~((train < (Q1 - iqr_multiplier * IQR)) |
                             (train > (Q3 + iqr_multiplier * IQR))
                             ).any(axis=1)].reset_index(drop=True).copy()
 
-        self.df = pd.concat([train, test], axis=0).reset_index(drop=True)
+        self.df = pd.concat([train_af, test], axis=0).reset_index(drop=True)
+
+        if print_diff:
+            #  Cálculo de diferencia en el tamaño de la muestra de entrenamiento
+            before = train.shape[0]
+            after = train_af.shape[0]
+            print(f'Datos para entrenamiento antes de eliminación de outliers: {before}')
+            print(f'Datos para entrenamiento de eliminación de outliers: {after}')
+            print(f'Proporción de datos para entrenamiento eliminada: {1 - round(after / before, 3)}')
 
     def log_transformer(self, column):
 
@@ -242,9 +250,10 @@ class MLModel:
         else:
             raise ValueError("El algoritmo no tiene el atributo feature_importances")
 
-    def to_pickle(self, filepath):
+    def to_pickle(self):
 
-        pickle.dump(self.best_model, open(filepath, 'wb'))
+        model_name = self.best_model.__class__.__name__.lower()
+        pickle.dump(self.best_model, open(f'best_models/{model_name}.sav', 'wb'))
 
     def to_pipeline(self, transformers):
 
