@@ -135,7 +135,7 @@ class PrepML:
 
         self.df[column] = self.df[column].map(lambda x: np.log(x))
 
-    def to_train_test_samples(self, sample_col, target, test_size=.3, random_state=42):
+    def to_ml_samples(self, sample_col, target, test_size=.3, random_state=42):
 
         start = time()
         random.seed(random_state)
@@ -159,7 +159,7 @@ class PrepML:
         length = round(time() - start, 0)
         print(f'Realizado en {length}s')
 
-        return X_train, y_train, X_test, y_test, X_val, y_val
+        return [X_train, y_train, X_test, y_test, X_val, y_val]
 
 
 class MLModel:
@@ -250,10 +250,10 @@ class MLModel:
         else:
             raise ValueError("El algoritmo no tiene el atributo feature_importances")
 
-    def to_pickle(self):
+    def to_pickle(self, car_category):
 
         model_name = self.best_model.__class__.__name__.lower()
-        pickle.dump(self.best_model, open(f'best_models/{model_name}.sav', 'wb'))
+        pickle.dump(self.best_model, open(f'best_models/{car_category}_{model_name}.sav', 'wb'))
 
     def to_pipeline(self, transformers):
 
