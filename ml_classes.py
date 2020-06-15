@@ -1,8 +1,6 @@
 """ TODO:
     - Ojo con categorías no observadas: cambiar a drop_first a 'False'
-    - Mètodo Actualizar
     - Atributo mejores parámetros
-
 """
 
 import pandas as pd
@@ -215,10 +213,10 @@ class MLModel:
         self.features = None
 
     @classmethod
-    """
-    Constructor alternativo de la clase, para instanciarla a partir de un modelo en pickle
-    """
     def from_pickle(cls, filepath):
+        """
+           Constructor alternativo de la clase, para instanciarla a partir de un modelo en pickle
+        """
         best_model = pickle.load(open(filepath, 'rb'))
 
         obj = cls.__new__(cls)
@@ -232,8 +230,7 @@ class MLModel:
         """
         Entrena el modelo
         :param x_train: Atributos de entrenamiento
-        :param y_train:
-        :return:
+        :param y_train: Variable Objetivo de entrenamiento
         """
 
         start = time()
@@ -244,7 +241,15 @@ class MLModel:
         length = round(time() - start, 0)
         print(f'Realizado en {length}s')
 
-    def grid_search(self, x_train, y_train, param_grid, cv=5, n_jobs=1):
+    def grid_search(self, x_train, y_train, param_grid, cv=5, n_jobs=-2):
+        """
+        Realiza la optimización de hiperparámetros a partir de la grilla definida
+        :param x_train: Atributos de entrenamiento
+        :param y_train: Variable objetivo de entrenamiento
+        :param param_grid: Grilla de hiperparámetros
+        :param cv: Número de validaciones cruzadas a realizar
+        :param n_jobs: número de trabajos a realizar en paralelo
+        """
         start = time()
         grid = GridSearchCV(estimator=self.model,
                             param_grid=param_grid,
@@ -265,6 +270,13 @@ class MLModel:
         self.features = x_train.columns
 
     def metrics(self, x_test, y_test, print_results=False):
+        """
+        Devuelve las principales métricas utilizadas para un modelo de regeresión
+        :param x_test: Atributos de muestra de prueba
+        :param y_test: Variable objetivo de muestra de prueba
+        :param print_results: si desea que los resultados sean impresos
+        :return: diccionario con las métricas (RSME, MAE y R2)
+        """
 
         if isinstance(self.best_model, XGBRegressor):
             y_hat = self.best_model.predict(x_test.values)
@@ -284,6 +296,15 @@ class MLModel:
         return metrics
 
     def train_test_metrics(self, X_train, y_train, X_test, y_test):
+        """
+        Devuelve las principales métricas utilizadas para evaluar modelos de regeresión
+            para las muestra de entrenamiento y de prueba.
+        :param X_train: Atributos de la muestra de entrenamiento
+        :param y_train: Variable objetivo de la muestra de entrenamiento
+        :param X_test: Atributos de la muestra de prueba
+        :param y_test: Variable objetivo de la muestra de prueba
+        :return: DataFrame con las métricas
+        """
 
         train_met = self.metrics(X_train, y_train, print_results=False)
         test_met = self.metrics(X_test, y_test, print_results=False)
@@ -292,23 +313,38 @@ class MLModel:
                 ]
         cols = ['RSME', 'MAE', 'R2']
         ix = ['Train', 'Test']
+
         return pd.DataFrame(data=data, columns=cols, index=ix)
 
-    def feature_importances(self, X_train):
+    def feature_importances(self, columns_name):
+        """
+        Crea un objeto Series con los atributos más relevantes
+        :param columns_name: Nombre de las columnas de la muestra de entrenamiento
+        :return: Series con Atributos más relevantes
+        """
 
-        columns = list(X_train.columns)
         if hasattr(self.best_model, 'feature_importances_'):
             return pd.Series(data=self.best_model.feature_importances_,
-                             index=columns).sort_values(ascending=False)
+                             index=columns_name).sort_values(ascending=False)
         else:
             raise ValueError("El algoritmo no tiene el atributo feature_importances")
 
     def to_pickle(self, car_category):
+        """
+        Serializa el mejor modelo y guarda el archivo en el sistema
+        :param car_category: categoría del vehículo del modelo
+        """
 
         model_name = self.best_model.__class__.__name__.lower()
         pickle.dump(self.best_model, open(f'best_models/{car_category}_{model_name}.sav', 'wb'))
 
     def to_pipeline(self, transformers, X_ct):
+        """
+        Crea un pipeline con el mejor modelo y la lista transformadores asignado
+        :param transformers: lista con tuplas de los trasnformadores
+        :param X_ct: Atributos para entrenar el objeto ColumnTransformer
+        :return: pipeline instanciado
+        """
 
         col_tf = ColumnTransformer(transformers).fit(X_ct)
         pipeline = Pipeline([
