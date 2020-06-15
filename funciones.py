@@ -1,5 +1,9 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
+import scipy.stats as stats
+import pylab
+import pandas as pd
+import numpy as np
 from matplotlib.pyplot import rcParams
 from ml_classes import MLModel
 
@@ -83,3 +87,52 @@ def metrics_pickled_mlmodels(model_list, samples, category):
                                             samples[category]['X_test'],
                                             samples[category]['y_test']))
         print('\n')
+
+
+# función para crear qq plot
+def qq_plot(model_list, X_val_list, y_val_list):
+    """
+    @parametros: model_list= Listado con mejores modelos.
+                 X_val_list= Listados con los atributos para la validación para cada modelos.
+                 y_val_list= Listado con el vector objetivo para la validación de cada modelo.
+
+    @retorno: 1- grafico qq-plot que muestra la distribución de los errores comparados con la distribución normal.
+
+    """
+    preds_0 = pd.DataFrame({"preds": model_list[0].predict(X_val_list[0]), "true": y_val_list[0]})
+    preds_0["residuals"] = preds_0["true"] - preds_0["preds"]
+    preds_1 = pd.DataFrame({"preds": model_list[1].predict(X_val_list[1]), "true": y_val_list[1]})
+    preds_1["residuals"] = preds_1["true"] - preds_1["preds"]
+    preds_2 = pd.DataFrame({"preds": model_list[2].predict(X_val_list[2]), "true": y_val_list[2]})
+    preds_2["residuals"] = preds_2["true"] - preds_2["preds"]
+    preds_3 = pd.DataFrame({"preds": model_list[3].predict(X_val_list[3]), "true": y_val_list[3]})
+    preds_3["residuals"] = preds_3["true"] - preds_3["preds"]
+    rcParams['figure.figsize'] = 12, 3
+    grid = plt.GridSpec(1, 4, wspace=0.6, hspace=0.3)
+    plt.subplot(grid[0, 0])
+    stats.probplot(abs(preds_0["residuals"]), dist="norm", plot=pylab)
+    plt.title(f"Probability plot ALL types")
+    plt.subplot(grid[0, 1])
+    stats.probplot(abs(preds_1["residuals"]), dist="norm", plot=pylab)
+    plt.title(f"Probability plot PSG")
+    plt.subplot(grid[0, 2])
+    stats.probplot(abs(preds_2["residuals"]), dist="norm", plot=pylab)
+    plt.title(f"Probability plot MPP")
+    plt.subplot(grid[0, 3]);
+    stats.probplot(abs(preds_3["residuals"]), dist="norm", plot=pylab)
+    plt.title(f"Probability plot TRK")
+
+
+def grafico_importancia(fit_model, feat_names):
+    """
+    @parametros: fit_model= modelo al que se quiere conocer la importancia de los atributos.
+                 feat_names=Listado con el nombre de los atributos del modelo.
+
+    @retorno: 1- Gráfico con los 10 atributos más importanotes del modelo.
+    """
+    tmp_importance = fit_model.feature_importances_
+    sort_importance = np.argsort(tmp_importance)[::-1]
+    names = [feat_names[i] for i in sort_importance[0:9]]
+    plt.title("Feature importance")
+    plt.barh(range(len(names)), tmp_importance[sort_importance[0:9]])
+    plt.yticks(range(len(names)), names, rotation=0)
