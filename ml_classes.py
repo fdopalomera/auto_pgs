@@ -19,7 +19,9 @@ import random
 
 
 class PrepML:
-
+    """
+    Clase para realizar el preproces de los datos requerido para los modelos de Machine Learning
+    """
     def __init__(self, df):
         self.df = df.dropna()
         self.columns = list(df.columns)
@@ -27,6 +29,10 @@ class PrepML:
         self.df_ct = self.clean_categories()
 
     def clean_categories(self):
+        """
+        Convierte los caracterés no alfanúmericos en guiones de todas las columnas del DataFrame de tipo 'object'
+        :return: DataFrame con columnas 'object' con valores convertidos
+        """
         
         df_ct = self.df
         for var in df_ct.select_dtypes('object').columns:
@@ -42,7 +48,6 @@ class PrepML:
 
         :param columns: [list] lista de columnas del df que se desean procesar por el encoder
         :param drop_first: [bool]
-        :return: df preprocesado
         """
 
         aux = {'drop': {True: 'first', False: None},
@@ -87,8 +92,7 @@ class PrepML:
         """
         Recodifica las columnas seleccionadas (variables continuas) escalando sus valores a través
             de la transformación: (x - mean(X)) / std(X)
-        :param columns:
-        :return:
+        :param columns: columnas seleccionadas
         """
 
         # Instanciamos y entrenamos/transformamos con objeto de preproceso
@@ -105,6 +109,12 @@ class PrepML:
         self.transformers += [('std_scaler', std_enc, columns)]
 
     def transform_columns(self, transformer_instance, transformer_name, columns):
+        """
+        Realiza en el DataFrame la instancia de la transformación asignada
+        :param transformer_instance: intancia de la clase que genera la transformación
+        :param transformer_name: nombre a asignar al transformador
+        :param columns: columnas a aplicar la transformación
+        """
 
         # Instanciamos y entrenamos/transformamos con objeto de preproceso
         data = transformer_instance.fit_transform(self.df[columns])
@@ -119,6 +129,14 @@ class PrepML:
         self.transformers += [(transformer_name, transformer_instance, columns)]
 
     def remove_outliers(self, columns, sample_col, iqr_multiplier=1.5, print_diff=False):
+        """
+        Remove los outliers de las columnas númericas según el critero de los boxplot de John Tucky
+        :param columns: columnas para buscar outliers
+        :param sample_col: columna que asigna el tipo de muestra
+        :param iqr_multiplier: multiplicador del rango intercuartil
+        :param print_diff: imprimir diferencias entre la muestra de entrenamiento de antes y después
+                            de la eliminación de outliers.
+        """
 
         train = self.df[self.df[sample_col] == 'train'].reset_index(drop=True)
         test = self.df[self.df[sample_col] == 'test'].reset_index(drop=True)
@@ -142,10 +160,22 @@ class PrepML:
             print(f'Proporción de datos para entrenamiento eliminada: {1 - round(after / before, 3)}')
 
     def log_transformer(self, column):
+        """
+        Realiza una transformación logística a las columnas seleccionadas
+        :param column:  columnas seleccionadas a transformar
+        """
 
         self.df[column] = self.df[column].map(lambda x: np.log(x))
 
     def to_ml_samples(self, sample_col, target, test_size=.3, random_state=42):
+        """
+        Divide la base en 6 muestras: de entrenamiento, de prueba y de validación.
+        :param sample_col: variable que clasifica el tipo de muestra
+        :param target: variable objetivo
+        :param test_size: dimensiones de la muestra de prueba
+        :param random_state: semilla pseudo-aleatoria
+        :return: X_train, y_train, X_test, y_test, X_val, y_val
+        """
 
         start = time()
         random.seed(random_state)
@@ -173,6 +203,10 @@ class PrepML:
 
 
 class MLModel:
+    """
+    Clase que engloba las principales tareas del flujo de trabajo de Machine Learning para
+        entrenar, evaluar y exportar modelos.
+    """
 
     def __init__(self, model):
         self.model = model
@@ -181,6 +215,9 @@ class MLModel:
         self.features = None
 
     @classmethod
+    """
+    Constructor alternativo de la clase, para instanciarla a partir de un modelo en pickle
+    """
     def from_pickle(cls, filepath):
         best_model = pickle.load(open(filepath, 'rb'))
 
@@ -192,6 +229,12 @@ class MLModel:
         return obj
 
     def fit(self, x_train, y_train):
+        """
+        Entrena el modelo
+        :param x_train: Atributos de entrenamiento
+        :param y_train:
+        :return:
+        """
 
         start = time()
         self.best_model = self.model.fit(x_train, y_train)
