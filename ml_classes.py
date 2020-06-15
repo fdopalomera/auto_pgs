@@ -24,6 +24,15 @@ class PrepML:
         self.df = df.dropna()
         self.columns = list(df.columns)
         self.transformers = []
+        self.df_ct = self.clean_categories()
+
+    def clean_categories(self):
+        
+        df_ct = self.df
+        for var in df_ct.select_dtypes('object').columns:
+            df_ct[var] = df_ct[var].map(lambda x: "".join(c if c.isalnum() else "_" for c in str(x)))
+
+        return df_ct
 
     def one_hot_encoder(self, columns, drop_first=True):
         """
@@ -72,7 +81,7 @@ class PrepML:
                             axis=1)
         # Actualizamos atributos
         self.columns = list(self.df.columns)
-        self.transformers += ('onehot', oh_enc, columns)
+        self.transformers += [('onehot', oh_enc, columns)]
 
     def standard_scaler(self, columns):
         """
@@ -93,7 +102,7 @@ class PrepML:
                             axis=1)
         # Actualizamos atributos
         self.columns = list(self.df.columns)
-        self.transformers += ('std_scaler', std_enc, columns)
+        self.transformers += [('std_scaler', std_enc, columns)]
 
     def transform_columns(self, transformer_instance, transformer_name, columns):
 
@@ -107,7 +116,7 @@ class PrepML:
                             axis=1)
         # Actualizamos atributos
         self.columns = list(self.df.columns)
-        self.transformers += (transformer_name, transformer_instance, columns)
+        self.transformers += [(transformer_name, transformer_instance, columns)]
 
     def remove_outliers(self, columns, sample_col, iqr_multiplier=1.5, print_diff=False):
 
@@ -122,6 +131,7 @@ class PrepML:
                             ).any(axis=1)].reset_index(drop=True).copy()
 
         self.df = pd.concat([train_af, test], axis=0).reset_index(drop=True)
+        self.df_ct = pd.concat([train_af, test], axis=0).reset_index(drop=True)
 
         if print_diff:
             #  Cálculo de diferencia en el tamaño de la muestra de entrenamiento
@@ -241,11 +251,11 @@ class MLModel:
         ix = ['Train', 'Test']
         return pd.DataFrame(data=data, columns=cols, index=ix)
 
-    def feature_importances(self, x_train):
+    def feature_importances(self, X_train):
 
-        columns = list(self.features)
+        columns = list(X_train.columns)
         if hasattr(self.best_model, 'feature_importances_'):
-            return pd.Series(data=self.best_model.feature_importances_.round(3),
+            return pd.Series(data=self.best_model.feature_importances_,
                              index=columns).sort_values(ascending=False)
         else:
             raise ValueError("El algoritmo no tiene el atributo feature_importances")
@@ -255,10 +265,11 @@ class MLModel:
         model_name = self.best_model.__class__.__name__.lower()
         pickle.dump(self.best_model, open(f'best_models/{car_category}_{model_name}.sav', 'wb'))
 
-    def to_pipeline(self, transformers):
+    def to_pipeline(self, transformers, X_ct):
 
+        col_tf = ColumnTransformer(transformers).fit(X_ct)
         pipeline = Pipeline([
-            ('preprocessor', ColumnTransformer(transformers)),
+            ('preprocessor', col_tf),
             ('model', self.best_model)
         ])
 
