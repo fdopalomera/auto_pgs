@@ -7,9 +7,10 @@ import numpy as np
 from matplotlib.pyplot import rcParams
 from ml_classes import MLModel
 
-
-#Definición función para graficar atributos continuos.
 def distrbution_graph(a):
+    """
+    Función para graficar atributos continuos.
+    """
     
     rcParams['figure.figsize'] = 8, 6
     sns.set(style="ticks")
@@ -21,8 +22,11 @@ def distrbution_graph(a):
     sns.despine(ax=ax_box, left=True)
 
 
-#definicion función para gráficos: count del atributo y boxplot con relacion con vector objetivo.
+
 def count_box_plot(a, df, b=100000, c=True):
+    """
+    Función para generar countplot del atributo y boxplot con relacion con vector objetivo.
+    """
     
     rcParams['figure.figsize'] = 14, 6
     sns.set(style="darkgrid")
@@ -43,6 +47,9 @@ def count_box_plot(a, df, b=100000, c=True):
 
 
 def get_info(dict):
+    """
+    Función auxiliar para filtrar la API
+    """
     
     cols = ['AirBagLocFront', 'BodyClass', 'BusFloorConfigType', 'BusType',
        'CustomMotorcycleType', 'DisplacementCC', 'DisplacementCI',
@@ -56,6 +63,9 @@ def get_info(dict):
 
 
 def train_mlmodels(model_list, grid_list, samples, category):
+    """
+    Función auxiliar para entrenar una serie de modelos según la catgoría de vehículo
+    """
 
     for model, grid in zip(model_list, grid_list):
         print(f'{category}_{model.__class__.__name__.lower()}')
@@ -73,6 +83,10 @@ def train_mlmodels(model_list, grid_list, samples, category):
 
 
 def metrics_pickled_mlmodels(model_list, samples, category):
+    
+    """
+    Función auxiliar para serializar modelos según la catgoría de vehículo
+    """
 
     # Enlistamos los archivos de modelos serialisados
     pickle_files = [f'{category}_{model.__class__.__name__.lower()}.sav' for model in model_list]

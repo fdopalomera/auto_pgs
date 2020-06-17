@@ -147,9 +147,9 @@ class PrepML:
         if print_diff:
             #  Cálculo de diferencia en el tamaño de la muestra de entrenamiento
             after = self.df.shape[0]
-            print(f'Datos para entrenamiento antes de eliminación de outliers: {before}')
-            print(f'Datos para entrenamiento después eliminación de outliers: {after}')
-            print(f'Proporción de datos para entrenamiento eliminada: {1 - round(after / before, 3)}')
+            print(f'Cantidad de datos antes de eliminación de outliers: {before}')
+            print(f'Cantidad de datos después eliminación de outliers: {after}')
+            print(f'Proporción de datos eliminados: {1 - round(after / before, 3)}')
 
     def log_transformer(self, column):
         """
