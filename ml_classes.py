@@ -126,7 +126,7 @@ class PrepML:
         self.columns = list(self.df.columns)
         self.transformers += [(transformer_name, transformer_instance, columns)]
 
-    def remove_outliers(self, columns, sample_col, iqr_multiplier=1.5, print_diff=False):
+    def remove_outliers(self, columns, iqr_multiplier=1.5, print_diff=False):
         """
         Remove los outliers de las columnas númericas según el critero de los boxplot de John Tucky
         :param columns: columnas para buscar outliers
@@ -135,24 +135,18 @@ class PrepML:
         :param print_diff: imprimir diferencias entre la muestra de entrenamiento de antes y después
                             de la eliminación de outliers.
         """
-
-        train = self.df[self.df[sample_col] == 'train'].reset_index(drop=True)
-        test = self.df[self.df[sample_col] == 'test'].reset_index(drop=True)
-
-        Q1 = train[columns].quantile(0.25)
-        Q3 = train[columns].quantile(0.75)
+        before = self.df.shape[0]
+        Q1 = self.df[columns].quantile(0.25)
+        Q3 = self.df[columns].quantile(0.75)
         IQR = Q3 - Q1
-        train_af = train[~((train < (Q1 - iqr_multiplier * IQR)) |
-                            (train > (Q3 + iqr_multiplier * IQR))
-                            ).any(axis=1)].reset_index(drop=True).copy()
-
-        self.df = pd.concat([train_af, test], axis=0).reset_index(drop=True)
-        self.df_ct = pd.concat([train_af, test], axis=0).reset_index(drop=True)
+        self.df = self.df[~((self.df < (Q1 - iqr_multiplier * IQR)) |
+                             (self.df > (Q3 + iqr_multiplier * IQR))
+                             ).any(axis=1)].reset_index(drop=True).copy()
+        self.df_ct = self.df
 
         if print_diff:
             #  Cálculo de diferencia en el tamaño de la muestra de entrenamiento
-            before = train.shape[0]
-            after = train_af.shape[0]
+            after = self.df.shape[0]
             print(f'Datos para entrenamiento antes de eliminación de outliers: {before}')
             print(f'Datos para entrenamiento después eliminación de outliers: {after}')
             print(f'Proporción de datos para entrenamiento eliminada: {1 - round(after / before, 3)}')
@@ -165,12 +159,12 @@ class PrepML:
 
         self.df[column] = self.df[column].map(lambda x: np.log(x))
 
-    def to_ml_samples(self, sample_col, target, test_size=.3, random_state=42):
+    def to_ml_samples(self, sample_col, target, val_size=.3, random_state=42):
         """
         Divide la base en 6 muestras: de entrenamiento, de prueba y de validación.
         :param sample_col: variable que clasifica el tipo de muestra
         :param target: variable objetivo
-        :param test_size: dimensiones de la muestra de prueba
+        :param val_size: dimensiones de la muestra de prueba
         :param random_state: semilla pseudo-aleatoria
         :return: X_train, y_train, X_test, y_test, X_val, y_val
         """
@@ -178,21 +172,21 @@ class PrepML:
         start = time()
         random.seed(random_state)
 
-        df_val = self.df[self.df[sample_col] == 'test'].reset_index(drop=True)
+        df_test = self.df[self.df[sample_col] == 'test'].reset_index(drop=True)
 
         ix = self.df[self.df['sample'] == 'train'].index
-        test_number = int(np.floor(len(ix) * test_size))
-        test_ix = random.choices(ix, k=test_number)
-        train_ix = list(set(ix) - set(test_ix))
-        df_test = self.df.loc[test_ix].reset_index(drop=True)
+        val_number = int(np.floor(len(ix) * val_size))
+        val_ix = random.choices(ix, k=val_number)
+        train_ix = list(set(ix) - set(val_ix))
+        df_val = self.df.loc[val_ix].reset_index(drop=True)
         df_train = self.df.loc[train_ix].reset_index(drop=True)
 
         X_train = df_train.drop(columns=[target, sample_col])
         y_train = df_train.pop(target)
-        X_test = df_test.drop(columns=[target, sample_col])
-        y_test = df_test.pop(target)
         X_val = df_val.drop(columns=[target, sample_col])
         y_val = df_val.pop(target)
+        X_test = df_test.drop(columns=[target, sample_col])
+        y_test = df_test.pop(target)
 
         length = round(time() - start, 0)
         print(f'Realizado en {length}s')
@@ -295,24 +289,24 @@ class MLModel:
 
         return metrics
 
-    def train_test_metrics(self, X_train, y_train, X_test, y_test):
+    def train_val_metrics(self, X_train, y_train, X_val, y_val):
         """
         Devuelve las principales métricas utilizadas para evaluar modelos de regeresión
-            para las muestra de entrenamiento y de prueba.
+            para las muestra de entrenamiento y de validación.
         :param X_train: Atributos de la muestra de entrenamiento
         :param y_train: Variable objetivo de la muestra de entrenamiento
-        :param X_test: Atributos de la muestra de prueba
-        :param y_test: Variable objetivo de la muestra de prueba
+        :param X_val: Atributos de la muestra de prueba
+        :param y_val: Variable objetivo de la muestra de prueba
         :return: DataFrame con las métricas
         """
 
         train_met = self.metrics(X_train, y_train, print_results=False)
-        test_met = self.metrics(X_test, y_test, print_results=False)
+        test_met = self.metrics(X_val, y_val, print_results=False)
         data = [[val for key, val in train_met.items()],
                 [val for key, val in test_met.items()]
                 ]
         cols = ['RSME', 'MAE', 'R2']
-        ix = ['Train', 'Test']
+        ix = ['Train', 'Val']
 
         return pd.DataFrame(data=data, columns=cols, index=ix)
 

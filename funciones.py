@@ -82,10 +82,10 @@ def metrics_pickled_mlmodels(model_list, samples, category):
         best_model = MLModel.from_pickle(f'best_models/{pickle_model}')
         # Métricas mejor modelo
         print(pickle_model[:-4])
-        print(best_model.train_test_metrics(samples[category]['X_train'],
+        print(best_model.train_val_metrics(samples[category]['X_train'],
                                             samples[category]['y_train'],
-                                            samples[category]['X_test'],
-                                            samples[category]['y_test']))
+                                            samples[category]['X_val'],
+                                            samples[category]['y_val']))
         print('\n')
 
 
